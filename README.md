@@ -14,8 +14,10 @@ O que ela faz:
 * compara projetos de **vidas diferentes** (empilhamento até o MMC, extensão ou truncamento com valor
   econômico) e faz a **análise marginal de todos os pares** (defensor × desafiante), além da seleção incremental
   e da enumeração de **carteiras** sob restrição de quantidade ou orçamento;
-* **cenários** com probabilidades (valor esperado, desvio padrão, CV, taxa ajustada ao risco), sensibilidade
-  (tornado) e ponto de equilíbrio;
+* **cenários** com probabilidades — listas ou **árvores de hipóteses × alternativas** com probabilidades
+  condicionais (`Hipotese`, `ArvoreDeCenarios`) — com valor esperado, desvio padrão, CV, tabela de dispersão no
+  formato das notas, taxa ajustada ao risco por curva de indiferença e reavaliação; sensibilidade (tornado) e
+  ponto de equilíbrio;
 * **simulação de Monte Carlo vetorizada** (distribuições triangular, PERT, normal, log-normal, uniforme,
   discreta, por período; hipercubo latino; correlação por cópula gaussiana) para projetos e carteiras;
 * **gráficos para o board** (Plotly, exportáveis em HTML interativo e PNG) e tabelas formatadas.
@@ -41,6 +43,7 @@ notebooks continuam funcionando (só a saída interativa).
 | `02_caso_gama.ipynb` | Caso Gama determinístico: modelagem dos 4 projetos, todos os métodos, vidas diferentes, análise marginal de todos os pares, carteiras de 2 projetos e parecer |
 | `03_cenarios_gama.ipynb` | Cenários pessimista/provável/otimista com probabilidades, E/DP/CV, taxa ajustada ao risco, tornado, ponto de equilíbrio, carteiras por cenário |
 | `04_monte_carlo_gama.ipynb` | Monte Carlo (20.000 simulações): distribuições de VPL/TIR/RAU, probabilidades de perda e de ser o melhor, tornado probabilístico, leques, carteiras e parecer para o board |
+| `05_risco_gama_parte2.ipynb` | Parte 2 do caso: árvore de probabilidades (hipóteses × alternativas) para o CPV de P2 e o preço de P4, valor esperado/DP/CV ponderados pelas probabilidades (sem Monte Carlo), curva de indiferença CV → taxa ajustada ao risco, reavaliação e decisão final |
 
 Os notebooks são gerados a partir de `scripts/notebooks_src/*.py` (formato *percent*, Python válido) com
 `uv run python scripts/build_notebooks.py --execute`. Os gráficos usados nas conclusões são exportados para
@@ -108,9 +111,9 @@ viz.grafico_distribuicoes(res); viz.grafico_cdf(res); viz.grafico_leque(res, "P1
 | `cashflow.py` | `FluxoDeCaixa` (1-D ou `(S, n+1)`), aritmética com alinhamento, `replicar`, `estender`, `truncar`, `somar`, `mmc` |
 | `metricas.py` | `vp`, `vpl`, `vpl_perfil`, `tir`, `tirm`, `payback`, `ibc`, `rau`, `rau_componentes`, `roia`, `taxa_fisher`, `indicadores`, `tabela_indicadores` |
 | `comparacao.py` | `equalizar`, `fluxo_marginal`, `analise_marginal`, `matriz_marginal`, `matriz_tir_marginal`, `campeao_incremental`, `carteiras`, `ranking` |
-| `cenarios.py` | `Cenario`, `AnaliseDeCenarios`, `sensibilidade`, `ponto_de_equilibrio`, `taxa_ajustada_ao_risco`, estatísticas com probabilidades |
+| `cenarios.py` | `Cenario` (com `variacoes`), `Hipotese`, `ArvoreDeCenarios`, `AnaliseDeCenarios` (uma árvore por projeto; `resumo`, `resumo_por_hipotese`, `tabela_dispersao`, `avaliacao_ajustada`), `sensibilidade`, `ponto_de_equilibrio`, `taxa_ajustada_ao_risco` |
 | `montecarlo.py` | Distribuições, `MonteCarlo`, `ResultadoMonteCarlo` (resumo, probabilidades, carteiras, sensibilidade, leque) |
-| `viz.py` | Tema e gráficos Plotly: fluxo em barras, diagrama de fluxo com setas (`grafico_diagrama_fluxo`, usado nos fluxos empilhados: ↑ entradas, ↓ investimentos, ambos nos anos de reinvestimento), perfil do VPL/Fisher, painel de indicadores, matriz marginal, cenários, tornado, distribuições, CDF, risco × retorno, carteiras, leque, probabilidade de ser o melhor; `exportar` |
+| `viz.py` | Tema e gráficos Plotly: fluxo em barras, diagrama de fluxo com setas (`grafico_diagrama_fluxo`, usado nos fluxos empilhados: ↑ entradas, ↓ investimentos, ambos nos anos de reinvestimento), perfil do VPL/Fisher, painel de indicadores, matriz marginal, cenários, tornado, distribuições, CDF, risco × retorno, carteiras, leque, probabilidade de ser o melhor, árvore de cenários, distribuição discreta, curva de indiferença; `exportar` |
 | `relatorios.py` | `estilizar`, `estilizar_demonstrativo`, `tabela_fluxos`, formatação pt-BR |
 
 ## Convenções

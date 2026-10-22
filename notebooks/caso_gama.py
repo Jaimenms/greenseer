@@ -88,3 +88,46 @@ MODELOS = {"P1": modelo_p1, "P2": modelo_p2, "P3": modelo_p3, "P4": modelo_p4}
 def projetos_base():
     """Os quatro projetos no caso-base."""
     return [m(BASE) for m in MODELOS.values()]
+
+
+# --------------------------------------------------------------------------- #
+# Parte 2 — risco com árvore de probabilidades e curva de indiferença
+# --------------------------------------------------------------------------- #
+from greenseer import ArvoreDeCenarios, Cenario, Hipotese  # noqa: E402
+
+# Curva de indiferença lida do gráfico "Risco × Retorno" do enunciado (eixo x = CV, eixo y = taxa ajustada):
+# pontos em CV 0,1 → 18%, 0,3 → 19%, 0,5 → 20%, 0,7 → 22%, 0,9 → 25%.
+CURVA_INDIFERENCA = [(0.1, 0.18), (0.3, 0.19), (0.5, 0.20), (0.7, 0.22), (0.9, 0.25)]
+
+
+def arvore_p2(modo: str = "relativo") -> ArvoreDeCenarios:
+    """Projeto 2: custo dos produtos vendidos (CPV).
+
+    Pessimista 10% (CPV +2%, +5%, +7%, +10% com 70/15/10/5%), mais provável 85%, otimista 5%
+    (CPV −2%, −5%, −8%, −10% com 60/20/15/5%). ``modo="relativo"`` aplica a variação sobre o
+    percentual (60% → 61,2%); ``modo="pp"`` soma pontos percentuais (60% → 62%).
+    """
+    def alt(nome, var, p):
+        return Cenario(nome, probabilidade=p, variacoes={"p2_cpv": var} if modo == "relativo" else {}, variacoes_pp={"p2_cpv": var} if modo == "pp" else {})
+
+    return ArvoreDeCenarios([
+        Hipotese("Pessimista", 0.10, [alt("CPV +2%", 0.02, 0.70), alt("CPV +5%", 0.05, 0.15), alt("CPV +7%", 0.07, 0.10), alt("CPV +10%", 0.10, 0.05)]),
+        Hipotese("Mais provável", 0.85),
+        Hipotese("Otimista", 0.05, [alt("CPV −2%", -0.02, 0.60), alt("CPV −5%", -0.05, 0.20), alt("CPV −8%", -0.08, 0.15), alt("CPV −10%", -0.10, 0.05)]),
+    ], nome="P2 · CPV", parametro="p2_cpv")
+
+
+def arvore_p4() -> ArvoreDeCenarios:
+    """Projeto 4: preço de venda.
+
+    Pessimista 10% (preço −2%, −3%, −4%, −5% com 70/15/10/5%), mais provável 85%, otimista 5%
+    (preço +1%, +2%, +3%, +4% com 60/20/15/5%).
+    """
+    def alt(nome, var, p):
+        return Cenario(nome, probabilidade=p, variacoes={"p4_preco": var})
+
+    return ArvoreDeCenarios([
+        Hipotese("Pessimista", 0.10, [alt("preço −2%", -0.02, 0.70), alt("preço −3%", -0.03, 0.15), alt("preço −4%", -0.04, 0.10), alt("preço −5%", -0.05, 0.05)]),
+        Hipotese("Mais provável", 0.85),
+        Hipotese("Otimista", 0.05, [alt("preço +1%", 0.01, 0.60), alt("preço +2%", 0.02, 0.20), alt("preço +3%", 0.03, 0.15), alt("preço +4%", 0.04, 0.05)]),
+    ], nome="P4 · preço", parametro="p4_preco")

@@ -663,3 +663,108 @@ def exportar(fig: go.Figure, caminho_base: str, formatos: Sequence[str] = ("html
         except Exception as exc:  # kaleido/Chrome ausentes
             warnings.warn(f"não foi possível exportar {ext}: {exc}")
     return gerados
+
+
+# --------------------------------------------------------------------------- #
+# Árvores de cenários, distribuições discretas e curva de indiferença
+# --------------------------------------------------------------------------- #
+def grafico_arvore(analise, projeto: str, metrica: str = "vpl", titulo: str | None = None, altura: int | None = None) -> go.Figure:
+    """Árvore de hipóteses → alternativas com probabilidades nas arestas e a métrica nas folhas."""
+    from .relatorios import fmt_moeda, fmt_pct
+
+    formato = _FORMATOS.get(metrica, "num")
+    rot = lambda v: _rotulo(v, formato)
+    arvore = analise.arvores[projeto]
+    res = analise.resultado[analise.resultado["Projeto"] == projeto].reset_index(drop=True)
+    resumo = analise.resumo(metrica).loc[projeto]
+    por_hip = analise.resumo_por_hipotese(metrica)
+    por_hip = por_hip[por_hip["Projeto"] == projeto].set_index("Hipótese")
+    cor = cor_de(projeto)
+    n_folhas = len(res)
+    ys = np.linspace(1.0, 0.0, n_folhas) if n_folhas > 1 else np.array([0.5])
+    folhas = {row["Cenário"]: (2.0, ys[i]) for i, (_, row) in enumerate(res.iterrows())}
+    hips = {}
+    for h in arvore.hipoteses:
+        yy = [folhas[c][1] for c in res["Cenário"] if res.loc[res["Cenário"] == c, "Hipótese"].iloc[0] == h.nome]
+        hips[h.nome] = (1.0, float(np.mean(yy)))
+    raiz = (0.0, float(np.mean([v[1] for v in hips.values()])))
+    fig = go.Figure()
+    # arestas
+    xs, ys_ = [], []
+    for h in arvore.hipoteses:
+        xs += [raiz[0], hips[h.nome][0], None]; ys_ += [raiz[1], hips[h.nome][1], None]
+    for _, row in res.iterrows():
+        a, b = hips[row["Hipótese"]], folhas[row["Cenário"]]
+        xs += [a[0], b[0], None]; ys_ += [a[1], b[1], None]
+    fig.add_scatter(x=xs, y=ys_, mode="lines", line=dict(color=EIXO, width=1.5), hoverinfo="skip", showlegend=False)
+    # rótulos de probabilidade nas arestas
+    for h in arvore.hipoteses:
+        fig.add_annotation(x=(raiz[0] + hips[h.nome][0]) / 2, y=(raiz[1] + hips[h.nome][1]) / 2, text=f"P = {_pct(h.probabilidade)}", showarrow=False, font=dict(size=11, color=INK_2), bgcolor=SUPERFICIE, yshift=8)
+    for _, row in res.iterrows():
+        a, b = hips[row["Hipótese"]], folhas[row["Cenário"]]
+        if row["P(alt | hip)"] is not None and not (isinstance(row["P(alt | hip)"], float) and np.isnan(row["P(alt | hip)"])) and row["P(alt | hip)"] < 1:
+            fig.add_annotation(x=(a[0] + b[0]) / 2, y=(a[1] + b[1]) / 2, text=_pct(row["P(alt | hip)"]), showarrow=False, font=dict(size=10.5, color=INK_2), bgcolor=SUPERFICIE)
+    # nós
+    fig.add_scatter(x=[raiz[0]], y=[raiz[1]], mode="markers+text", marker=dict(size=22, color=cor, line=dict(color=SUPERFICIE, width=2)), text=[f"<b>{projeto}</b>"], textposition="middle left", textfont=dict(size=13, color=INK), hovertemplate=f"<b>{projeto}</b><br>E[{metrica.upper()}] = {rot(resumo['Valor esperado'])}<br>DP = {rot(resumo['Desvio padrão'])}<br>CV = {resumo['CV']:.2f}<extra></extra>".replace(".", ","), showlegend=False)
+    # duas anotações separadas: um texto com dois cifrões seria interpretado como LaTeX pelo Plotly
+    fig.add_annotation(x=raiz[0], y=raiz[1], text=f"E = {rot(resumo['Valor esperado'])}", showarrow=False, xanchor="center", yshift=-24, font=dict(size=11, color=INK_2))
+    fig.add_annotation(x=raiz[0], y=raiz[1], text=f"DP = {rot(resumo['Desvio padrão'])} · CV = {resumo['CV']:.2f}".replace("CV = 0.", "CV = 0,"), showarrow=False, xanchor="center", yshift=-40, font=dict(size=11, color=INK_2))
+    for h in arvore.hipoteses:
+        x, y = hips[h.nome]
+        e_cond = por_hip.loc[h.nome, "E[métrica | hipótese]"] if h.nome in por_hip.index else np.nan
+        fig.add_scatter(x=[x], y=[y], mode="markers", marker=dict(size=16, color=cor, opacity=0.85, line=dict(color=SUPERFICIE, width=2)), hovertemplate=f"<b>{h.nome}</b><br>P = {_pct(h.probabilidade)}<br>E[{metrica.upper()} | hipótese] = {rot(e_cond)}<extra></extra>", showlegend=False)
+        fig.add_annotation(x=x, y=y, text=f"<b>{h.nome}</b><br>E = {rot(e_cond)}", showarrow=False, yshift=26 if len(arvore.hipoteses) > 1 else 0, font=dict(size=11, color=INK), align="center")
+    for _, row in res.iterrows():
+        x, y = folhas[row["Cenário"]]
+        v = row[metrica]
+        alt = row["Cenário"].split(" · ", 1)[1] if " · " in row["Cenário"] else "caso-base"
+        fig.add_scatter(x=[x], y=[y], mode="markers", marker=dict(size=11, color=COR_ENTRADA if v >= 0 else COR_SAIDA, line=dict(color=SUPERFICIE, width=1.5)), hovertemplate=f"<b>{row['Cenário']}</b><br>P conjunta = {_pct(row['Probabilidade'])}<br>{metrica.upper()} = {rot(v)}<extra></extra>", showlegend=False)
+        fig.add_annotation(x=x, y=y, text=f"{alt} · <b>{rot(v)}</b> · p = {_pct(row['Probabilidade'])}", showarrow=False, xanchor="left", xshift=12, font=dict(size=11, color=INK_2 if v >= 0 else COR_SAIDA), align="left")
+    fig.update_layout(
+        title=titulo or f"{projeto} — árvore de cenários ({metrica.upper()} em cada folha)",
+        xaxis=dict(visible=False, range=[-0.6, 3.4]), yaxis=dict(visible=False, range=[-0.12, 1.14]),
+        height=altura or max(380, 36 * n_folhas + 120), margin=dict(l=20, r=20, t=70, b=20), showlegend=False, hovermode="closest",
+    )
+    return fig
+
+
+def grafico_distribuicao_discreta(analise, projeto: str, metrica: str = "vpl", titulo: str | None = None, altura: int = 380) -> go.Figure:
+    """Distribuição de probabilidade da métrica (um ponto por cenário), com o valor esperado e a faixa ± DP."""
+    formato = _FORMATOS.get(metrica, "num")
+    res = analise.resultado[analise.resultado["Projeto"] == projeto].sort_values(metrica)
+    resumo = analise.resumo(metrica).loc[projeto]
+    e, dp = resumo["Valor esperado"], resumo["Desvio padrão"]
+    v = res[metrica].to_numpy(dtype=float); p = res["Probabilidade"].to_numpy(dtype=float)
+    largura = 0.012 * (max(v.max(), e + dp) - min(v.min(), e - dp) or 1.0)
+    fig = go.Figure()
+    fig.add_vrect(x0=e - dp, x1=e + dp, fillcolor=cor_de(projeto), opacity=0.08, line_width=0, annotation_text="E ± DP", annotation_position="top left", annotation_font=dict(size=11, color=INK_2))
+    fig.add_bar(x=v, y=p, width=largura, marker=dict(color=[cor_de(projeto) if x >= 0 else COR_SAIDA for x in v], line=dict(width=0)), customdata=res["Cenário"], hovertemplate="%{customdata}<br>" + metrica.upper() + " %{x:,.0f}<br>probabilidade %{y:.1%}<extra></extra>", showlegend=False)
+    fig.add_vline(x=e, line=dict(color=INK, width=1.5))
+    fig.add_annotation(x=e, y=1, yref="paper", text=f"E = {_rotulo(e, formato)}", showarrow=False, xanchor="left", xshift=4, font=dict(size=11, color=INK))
+    if v.min() < 0 < v.max():
+        fig.add_vline(x=0, line=dict(color=INK_MUDA, width=1, dash="dot"))
+    fig.update_layout(title=titulo or f"{projeto} — distribuição do {metrica.upper()} por cenário (DP = {_rotulo(dp, formato)}, CV = {resumo['CV']:.2f})".replace("CV = 0.", "CV = 0,"), xaxis=dict(title=metrica.upper(), tickformat=".0%" if formato == "pct" else None, showgrid=False), yaxis=dict(title="Probabilidade", tickformat=".0%"), height=altura, bargap=0)
+    return fig
+
+
+def grafico_curva_indiferenca(curva, pontos=None, extrapolar: bool = False, titulo: str | None = None, altura: int = 420, cv_max: float | None = None) -> go.Figure:
+    """Curva CV → taxa ajustada ao risco, com o ponto de cada projeto e a taxa resultante."""
+    from .cenarios import taxa_ajustada_ao_risco
+
+    pontos = {} if pontos is None else (pontos.to_dict() if hasattr(pontos, "to_dict") else dict(pontos))
+    xs_c = [c[0] for c in sorted(curva)]
+    xmax = max(cv_max or 0, max(xs_c), *(1.1 * v for v in pontos.values())) if pontos else max(cv_max or 0, max(xs_c))
+    xs = np.linspace(0, xmax, 241)
+    ys = taxa_ajustada_ao_risco(xs, curva, extrapolar)
+    fig = go.Figure()
+    fig.add_scatter(x=xs, y=ys, mode="lines", line=dict(color=INK_2, width=2), name="Curva de indiferença", hovertemplate="CV %{x:.2f} → %{y:.1%}<extra></extra>")
+    fig.add_scatter(x=xs_c, y=[c[1] for c in sorted(curva)], mode="markers", marker=dict(symbol="diamond", size=9, color=INK_2, line=dict(color=SUPERFICIE, width=1.5)), name="Pontos informados", hovertemplate="CV %{x:.2f} → %{y:.1%}<extra></extra>")
+    if extrapolar and xmax > max(xs_c):
+        fig.add_vrect(x0=max(xs_c), x1=xmax, fillcolor=INK_MUDA, opacity=0.07, line_width=0, annotation_text="extrapolação", annotation_position="top left", annotation_font=dict(size=11, color=INK_2))
+    for nome, cv in pontos.items():
+        tx = float(taxa_ajustada_ao_risco(cv, curva, extrapolar))
+        cor = cor_de(str(nome))
+        fig.add_scatter(x=[0, cv, cv], y=[tx, tx, 0], mode="lines", line=dict(color=cor, width=1, dash="dot"), hoverinfo="skip", showlegend=False)
+        fig.add_scatter(x=[cv], y=[tx], mode="markers+text", marker=dict(size=13, color=cor, line=dict(color=SUPERFICIE, width=2)), text=[f"{nome}: CV {cv:.2f} → {_pct(tx)}".replace(f"{cv:.2f}", f"{cv:.2f}".replace(".", ","))], textposition="top left", textfont=dict(size=11.5, color=INK), name=str(nome), hovertemplate=f"<b>{nome}</b><br>CV {cv:.2f}<br>taxa ajustada {_pct(tx)}<extra></extra>")
+    fig.update_layout(title=titulo or "Curva de indiferença: coeficiente de variação → taxa de desconto ajustada ao risco", xaxis=dict(title="Coeficiente de variação (risco)", showgrid=True, gridcolor=GRADE, range=[0, xmax * 1.02]), yaxis=dict(title="Taxa de desconto ajustada", tickformat=".0%", rangemode="tozero"), height=altura, legend=dict(orientation="h", y=1.0, yanchor="bottom", x=1, xanchor="right"))
+    return fig

@@ -15,7 +15,7 @@ relatorios  formatação de tabelas
 
 from . import cenarios, comparacao, metricas, montecarlo, projeto, relatorios, series, viz
 from .cashflow import FluxoDeCaixa, como_fluxo, como_fluxos, mmc, somar
-from .cenarios import AnaliseDeCenarios, Cenario, ponto_de_equilibrio, sensibilidade, taxa_ajustada_ao_risco
+from .cenarios import AnaliseDeCenarios, ArvoreDeCenarios, Cenario, Hipotese, aplicar_cenario, ponto_de_equilibrio, sensibilidade, taxa_ajustada_ao_risco
 from .comparacao import analise_marginal, campeao_incremental, carteiras, equalizar, fluxo_marginal, matriz_marginal, matriz_tir_marginal, ranking
 from .metricas import ibc, indicadores, payback, rau, roia, tabela_indicadores, taxa_fisher, tir, tirm, vp, vpl, vpl_perfil
 from .montecarlo import Discreta, Fixa, LogNormal, MonteCarlo, Normal, Pert, PorPeriodo, ResultadoMonteCarlo, Triangular, Uniforme
@@ -31,7 +31,7 @@ __all__ = [
     "Crescimento", "Variacoes", "Percentual", "Produto", "Soma", "Degraus", "unidades_x_preco",
     "vp", "vpl", "vpl_perfil", "tir", "tirm", "payback", "ibc", "rau", "roia", "taxa_fisher", "indicadores", "tabela_indicadores",
     "equalizar", "fluxo_marginal", "analise_marginal", "matriz_marginal", "matriz_tir_marginal", "campeao_incremental", "carteiras", "ranking",
-    "Cenario", "AnaliseDeCenarios", "sensibilidade", "ponto_de_equilibrio", "taxa_ajustada_ao_risco",
+    "Cenario", "Hipotese", "ArvoreDeCenarios", "AnaliseDeCenarios", "aplicar_cenario", "sensibilidade", "ponto_de_equilibrio", "taxa_ajustada_ao_risco",
     "MonteCarlo", "ResultadoMonteCarlo", "Triangular", "Pert", "Normal", "LogNormal", "Uniforme", "Discreta", "Fixa", "PorPeriodo",
     "estilizar", "estilizar_demonstrativo", "estilizar_gradiente", "estilizar_divergente", "tabela_fluxos", "fmt_moeda", "fmt_pct",
     "series", "projeto", "metricas", "comparacao", "cenarios", "montecarlo", "viz", "relatorios",
